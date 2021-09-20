@@ -5,31 +5,55 @@ from torch.utils.data import Dataset
 
 class SinusoidDataSet(Dataset):
 
-    def __init__(self, size, T=50, fs=500, transform=None):
+    def __init__(self, size, sinusoids, max_freq=15.5, T=10, fs=500, transform=None, load=False):
         """
-        Initialize a experimental sinusoid signal dataset to test transforms with
-        """
-        self.transform = transform
+        Initialize a experimental sinusoid signal dataset to test transforms with.
 
+        :param size: number of independent signals contained within the dataset
+        :param sinusoids: number of sinusoid functions summed in each signal.
+        :param max_freq: if load is False, generate a dataset with intrinsic frequencies capped by max_freq
+        :param T: time of signal in seconds
+        :param fs: sample frequency
+        :param transform: pytorch transform object to apply to the signal in __getitem__
+        :param load: bool whether to load previous dataset from file or generate new
+
+        main instance variables:
+        self.data : shape=(size, self.T * self.fs), contains each signal as a row
+        self.data_params_freq : shape=(size, sinusoids), contains the frequency parameters that generated each signal
+        self.data_params_amp : shape=(size, sinusoids), contains the amplitude parameters that generated each signal
+        """
+
+        self.transform = transform
         self.n = size
         # Time of signal in seconds
         self.T = T
         # How are these seconds sampled, Hz?
         self.fs = fs
+        self.sinusoids = sinusoids
 
-        # Matrix (the dataset) to generate, each row holds a signal
+        if load:
+            # Matrix (the dataset) to generate, each row holds a signal
+            self.data = []
+            # The parameters used to generate each signal (row)
+            self.data_params_amp = []
+            self.data_params_freq = []
+            return
+
+
+        # Otherwise generate new dataset
+        self.max_freq = max_freq
         self.data = torch.zeros(size, self.T * self.fs)
-
-        # The parameters used to generate each signal (row)
-        # self.data_params[i] holds a two row np array:
-            # First row: frequency coefs of sinusoid
-            # Second row: amplitude coefs of sinusoid
-            # Columns follow possion distribution (number of sinusoids summed in signal)
-        self.data_params = dict()
+        self.data_params_freq = torch.zeros(size, sinusoids)
+        self.data_params_amp = torch.zeros(size, sinusoids)
 
         # Generate the signals
         for i in range(size):
-            self.data[i], self.data_params[i] = self.getSignal()
+            self.data[i], self.data_params_freq[i], self.data_params_amp[i] = self.generateSignal()
+
+        torch.save(self.data, "data-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+        torch.save(self.data_params_amp, "amp-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+        torch.save(self.data_params_freq, "freq-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+
 
 
     def __len__(self):
@@ -38,8 +62,8 @@ class SinusoidDataSet(Dataset):
 
     def __getitem__(self, idx):
         if self.transform is not None:
-            return self.transform(self.data[idx])
-        return self.data[idx]
+            return self.transform(self.data[idx]), self.data_params_freq[idx]
+        return self.data[idx], self.data_params_freq[idx]
 
 
     def viewTrueSignal(self, idx):
@@ -49,42 +73,40 @@ class SinusoidDataSet(Dataset):
         :param item: the index of signal to view
         """
         fig = go.Figure(go.Scatter(y=self.data[idx]))
-        fig.update_layout(title="freq:" + str(self.data_params[idx][0])
-                                + "\n\namp:" + str(self.data_params[idx][1]))
+        fig.update_layout(title="freq:" + str(self.data_params_freq[idx])
+                                + "\n\namp:" + str(self.data_params_amp[idx]))
         fig.show()
 
 
     def viewSignal(self, idx):
         """
-        Generate a 2D plot of the non-transformed signal using web browser and plotly
+        Generate a 2D plot of the (possibly TRANSFORMED) signal using web browser and plotly
         Add text revealing the true frequency and amplitude coefficients of the signal
-        :param item: the index of signal to view
+        :param idx: the index of signal to view
         """
-        if self.transform is not None:
-            freqs = torch.fft.rfftfreq(self.data[idx].shape[0], 1 / 500)
-            fig = go.Figure(go.Scatter(x=freqs[torch.argsort(freqs)], y=self.transform(self.data[idx])))
-        else:
-            fig = go.Figure(go.Scatter(y=self.data[idx]))
+        if self.transform is None: return self.viewTrueSignal(idx)
 
-        fig.update_layout(title="freq:" + str(self.data_params[idx][0])
-                                + "\n\namp:" + str(self.data_params[idx][1]))
+        if self.transform.domain.ndim == 1:
+            fig = go.Figure(go.Scatter(x=self.transform.domain, y=self.transform(self.data[idx])))
+        elif self.transform.domain.ndim == 2:
+            # Transform is an image
+            return
+        else: raise ValueError("Shape of the domain is not  handled for visualizing")
+
+        fig.update_layout(title="freq:" + str(self.data_params_freq[idx])
+                                + "\n\namp:" + str(self.data_params_amp[idx]))
         fig.show()
 
-    def getSignal(self):
-        """
 
-        :return:
+    def generateSignal(self):
+        """
+        :return: the sin signal generated by random frequency and amplitude parameters
         """
         signal = torch.zeros(self.T * self.fs)
-
-        # How many sin functions to sum in the signal follows a poission distribution, +1 to shift support over 1 not 0
-        sinusoids = np.random.poisson(1.25) + 1
-
-        # Obtain random scale an amplitude coefficients for each sinusoid
-        freq_coefs = np.abs(np.random.normal(0, 1.75, sinusoids))
-        amp_coefs = np.random.normal(0, 1.75, sinusoids)
-
+        # Obtain random frequency and amplitude coefficients for each sinusoid
+        freq_coefs = np.random.uniform(0.1, self.max_freq, self.sinusoids)
+        amp_coefs = np.random.uniform(0.01, 3, self.sinusoids)
         # Obtain the signal by evaluating the sinusoids
         for i,v in enumerate((np.linspace(0, self.T, self.T * self.fs))):
-            signal[i] = sum(amp_coefs[j] * np.sin(freq_coefs[j] * v) for j in range(sinusoids))
-        return signal, np.vstack((freq_coefs, amp_coefs))
+            signal[i] = sum(amp_coefs[j] * np.sin(2*np.pi * freq_coefs[j] * v) for j in range(self.sinusoids))
+        return signal, torch.tensor(freq_coefs), torch.tensor(amp_coefs)
