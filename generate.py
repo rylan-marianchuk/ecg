@@ -1,7 +1,11 @@
 import numpy as np
 import plotly.graph_objs as go
+import plotly.express as px
 import torch
 from torch.utils.data import Dataset
+
+from transforms import Wavelet
+
 
 class SinusoidDataSet(Dataset):
 
@@ -50,9 +54,9 @@ class SinusoidDataSet(Dataset):
         for i in range(size):
             self.data[i], self.data_params_freq[i], self.data_params_amp[i] = self.generateSignal()
 
-        torch.save(self.data, "data-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
-        torch.save(self.data_params_amp, "amp-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
-        torch.save(self.data_params_freq, "freq-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+        #torch.save(self.data, "data-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+        #torch.save(self.data_params_amp, "amp-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+        #torch.save(self.data_params_freq, "freq-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
 
 
 
@@ -86,11 +90,18 @@ class SinusoidDataSet(Dataset):
         """
         if self.transform is None: return self.viewTrueSignal(idx)
 
-        if self.transform.domain.ndim == 1:
-            fig = go.Figure(go.Scatter(x=self.transform.domain, y=self.transform(self.data[idx])))
-        elif self.transform.domain.ndim == 2:
+        if len(self.transform.domain) == 1:
+            # One dimensional
+            fig = go.Figure(go.Scatter(x=self.transform.domain[0], y=self.transform(self.data[idx])))
+        elif len(self.transform.domain) == 2:
+            if isinstance(self.transform, Wavelet):
+                labels = dict(x="Time (seconds)", y="Wavelet Scale", color="Concordance")
             # Transform is an image
-            return
+            fig = px.imshow(self.transform(self.data[idx]))
+                            #y=self.transform.domain[0],
+                            #x=self.transform.domain[1],
+                            #labels=labels)
+
         else: raise ValueError("Shape of the domain is not  handled for visualizing")
 
         fig.update_layout(title="freq:" + str(self.data_params_freq[idx])
