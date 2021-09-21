@@ -6,6 +6,10 @@ from transforms import Fourier, MedianPass, FourierWindowed, Wavelet
 from torch.utils.data import DataLoader
 import torch.nn as nn
 
+
+T = 1
+fs = 500
+
 sinusoids = 3
 epochs = 12
 # Since in generation I capped the frequencies to 15.5, fourier will not spike after the 160th element, thus redundant
@@ -13,16 +17,8 @@ input_size = 160
 
 
 # ------------------ All to be replaced by new ECG dataset -------------------------------------
-dataset_tr = SinusoidDataSet(50000, 3, load=True, transform=Fourier())
-dataset_te = SinusoidDataSet(20000, 3, load=True, transform=Fourier())
-
-dataset_tr.data = torch.load("./data-sins-3-len-70000.pt")[:50000]
-dataset_tr.data_params_freq = torch.load("./freq-sins-3-maxfreq-15_5-len-70000.pt")[:50000]
-dataset_tr.data_params_amp = torch.load("./amp-sins-3-len-70000.pt")[:50000]
-
-dataset_te.data = torch.load("./data-sins-3-len-70000.pt")[50000:]
-dataset_te.data_params_freq = torch.load("./freq-sins-3-maxfreq-15_5-len-70000.pt")[50000:]
-dataset_te.data_params_amp = torch.load("./amp-sins-3-len-70000.pt")[50000:]
+dataset_tr = SinusoidDataSet(50000, 3, transform=Fourier())
+dataset_te = SinusoidDataSet(20000, 3, transform=Fourier())
 # ------------------ ------------------------------------- -------------------------------------
 
 

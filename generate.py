@@ -9,7 +9,7 @@ from transforms import Wavelet
 
 class SinusoidDataSet(Dataset):
 
-    def __init__(self, size, sinusoids, max_freq=15.5, T=10, fs=500, transform=None, load=False):
+    def __init__(self, size, sinusoids, max_freq=15.5, T=10, fs=500, transform=None, save=False):
         """
         Initialize a experimental sinusoid signal dataset to test transforms with.
 
@@ -19,7 +19,7 @@ class SinusoidDataSet(Dataset):
         :param T: time of signal in seconds
         :param fs: sample frequency
         :param transform: pytorch transform object to apply to the signal in __getitem__
-        :param load: bool whether to load previous dataset from file or generate new
+        :param save: bool whether to save the generated dataset to the disk
 
         main instance variables:
         self.data : shape=(size, self.T * self.fs), contains each signal as a row
@@ -35,16 +35,7 @@ class SinusoidDataSet(Dataset):
         self.fs = fs
         self.sinusoids = sinusoids
 
-        if load:
-            # Matrix (the dataset) to generate, each row holds a signal
-            self.data = []
-            # The parameters used to generate each signal (row)
-            self.data_params_amp = []
-            self.data_params_freq = []
-            return
-
-
-        # Otherwise generate new dataset
+        # Generate new dataset
         self.max_freq = max_freq
         self.data = torch.zeros(size, self.T * self.fs)
         self.data_params_freq = torch.zeros(size, sinusoids)
@@ -53,10 +44,10 @@ class SinusoidDataSet(Dataset):
         # Generate the signals
         for i in range(size):
             self.data[i], self.data_params_freq[i], self.data_params_amp[i] = self.generateSignal()
-
-        #torch.save(self.data, "data-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
-        #torch.save(self.data_params_amp, "amp-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
-        #torch.save(self.data_params_freq, "freq-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+        if save:
+            torch.save(self.data, "data-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+            torch.save(self.data_params_amp, "amp-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
+            torch.save(self.data_params_freq, "freq-sins-" + str(sinusoids) + "-len-" + str(size) + ".pt")
 
 
 
@@ -65,6 +56,7 @@ class SinusoidDataSet(Dataset):
 
 
     def __getitem__(self, idx):
+        # Target here is frequency of the sin wave
         if self.transform is not None:
             return self.transform(self.data[idx]), self.data_params_freq[idx]
         return self.data[idx], self.data_params_freq[idx]
@@ -94,13 +86,8 @@ class SinusoidDataSet(Dataset):
             # One dimensional
             fig = go.Figure(go.Scatter(x=self.transform.domain[0], y=self.transform(self.data[idx])))
         elif len(self.transform.domain) == 2:
-            if isinstance(self.transform, Wavelet):
-                labels = dict(x="Time (seconds)", y="Wavelet Scale", color="Concordance")
             # Transform is an image
-            fig = px.imshow(self.transform(self.data[idx]))
-                            #y=self.transform.domain[0],
-                            #x=self.transform.domain[1],
-                            #labels=labels)
+            fig = px.imshow(self.transform(self.data[idx])[:,:500])
 
         else: raise ValueError("Shape of the domain is not  handled for visualizing")
 
@@ -116,7 +103,7 @@ class SinusoidDataSet(Dataset):
         signal = torch.zeros(self.T * self.fs)
         # Obtain random frequency and amplitude coefficients for each sinusoid
         freq_coefs = np.random.uniform(0.1, self.max_freq, self.sinusoids)
-        amp_coefs = np.random.uniform(0.01, 3, self.sinusoids)
+        amp_coefs = np.random.uniform(1.5, 5.5, self.sinusoids)
         # Obtain the signal by evaluating the sinusoids
         for i,v in enumerate((np.linspace(0, self.T, self.T * self.fs))):
             signal[i] = sum(amp_coefs[j] * np.sin(2*np.pi * freq_coefs[j] * v) for j in range(self.sinusoids))
