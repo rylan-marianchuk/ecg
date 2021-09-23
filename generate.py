@@ -23,8 +23,8 @@ class SinusoidDataSet(Dataset):
 
         main instance variables:
         self.data : shape=(size, self.T * self.fs), contains each signal as a row
-        self.data_params_freq : shape=(size, sinusoids), contains the frequency parameters that generated each signal
-        self.data_params_amp : shape=(size, sinusoids), contains the amplitude parameters that generated each signal
+        self.data_params_freq : shape=(size, sinusoids), contains the frequency parameters that generated each signal, by row
+        self.data_params_amp : shape=(size, sinusoids), contains the amplitude parameters that generated each signal, by row
         """
 
         self.transform = transform
@@ -87,9 +87,12 @@ class SinusoidDataSet(Dataset):
             fig = go.Figure(go.Scatter(x=self.transform.domain[0], y=self.transform(self.data[idx])))
         elif len(self.transform.domain) == 2:
             # Transform is an image
-            fig = px.imshow(self.transform(self.data[idx])[:,:500])
-
-        else: raise ValueError("Shape of the domain is not  handled for visualizing")
+            fig = go.Figure(data=go.Heatmap(z=self.transform(self.data[idx]),
+                            x=self.transform.domain[1],
+                            y=self.transform.domain[0]))
+            fig.update_yaxes(title_text="Wavelet scale", type='category')
+            fig.update_xaxes(title_text="Time (seconds)", type='category')
+        else: raise ValueError("Shape of the domain is not handled for visualizing")
 
         fig.update_layout(title="freq:" + str(self.data_params_freq[idx])
                                 + "\n\namp:" + str(self.data_params_amp[idx]))
