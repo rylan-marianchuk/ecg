@@ -129,7 +129,7 @@ class SinusoidDataSet(Dataset):
         signal = torch.zeros(self.T * self.fs)
         # Obtain random frequency and amplitude coefficients for each sinusoid
         amp_coefs = np.random.uniform(1.5, 5.5, self.sinusoids)
-        time_varying_coefs = np.random.uniform(self.max_freq, self.max_freq, self.sinusoids)
+        time_varying_coefs = np.random.uniform(0.25, self.max_freq, self.sinusoids)
         # Obtain the signal by evaluating the sinusoids
         for i,v in enumerate((np.linspace(0, self.T, self.T * self.fs))):
             signal[i] = sum(amp_coefs[j] * np.sin(2*np.pi * time_varying_coefs[j] * v * v) for j in range(self.sinusoids))
