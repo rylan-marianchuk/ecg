@@ -10,6 +10,7 @@ September 2021
 import plotly.graph_objs as go
 import torch
 import pywt
+import math
 
 class MedianPass(object):
     def __init__(self, radius, T=10, fs=500):
@@ -55,6 +56,41 @@ class InvFourier(object):
     def __call__(self, signal):
         return torch.fft.irfft(signal)
 
+class STFouier(object):
+    def __init__(self, window_size, T=10, fs=500):
+        assert (window_size < T*fs), "Specified window size greater than the signal itself"
+        self.fs = fs
+        self.T = T
+        self.win = window_size
+        self.overlap_frac = 0.5
+        self.jump = math.floor(window_size * self.overlap_frac)
+        self.n_windows = int(math.ceil(self.T*self.fs / self.jump))
+        self.domain = {0: torch.tensor(range(0, T*fs, self.jump)) / fs,
+                       1: torch.fft.rfftfreq(self.win, 1/fs)}
+        self.domain_shape = (len(self.domain[0]), len(self.domain[1]))
+        self.hanning = torch.hann_window(self.win)
+
+    def __call__(self, signal):
+        assert (signal.shape[0] == self.T*self.fs), "The signal is not corresponding to the specified time length and" \
+                                                    "sample frequency"
+        result = torch.zeros(self.domain_shape[0], self.domain_shape[1])
+        signal_pad = torch.concat((signal, torch.zeros(self.win)))
+        for i, L_edge in enumerate((range(0, signal.shape[0], self.jump))):
+            dampened = self.hanning * signal_pad[L_edge: L_edge + self.win]
+            F = torch.fft.rfft(dampened)
+            result[i] = torch.abs(F)
+        return result
+
+    def view(self, signal):
+        trfm = self(signal)
+        fig = go.Figure(data=go.Heatmap(z=trfm,
+                                        x=self.domain[1],
+                                        y=self.domain[0]))
+        fig.update_layout(title="Short Time Fourier Transform  -  Window size: " + str(self.win))
+        fig.update_yaxes(title_text="Window start time (seconds)", type='category')
+        fig.update_xaxes(title_text="Power Spectrum of Window", type='category')
+        fig.show()
+
 
 class PowerSpec(object):
     def __init__(self, T=10, fs=500):
@@ -93,7 +129,7 @@ class Wavelet(object):
         fig = go.Figure(data=go.Heatmap(z=trfm,
                                         x=self.domain[1],
                                         y=self.domain[0]))
-        fig.update_layout(title="Wavelet Transform\nWavelet: " + str(self.wavelet))
+        fig.update_layout(title="Wavelet Transform  -  Wavelet: " + str(self.wavelet))
         fig.update_yaxes(title_text="Wavelet scale", type='category')
         fig.update_xaxes(title_text="Time (seconds)", type='category')
         fig.show()
