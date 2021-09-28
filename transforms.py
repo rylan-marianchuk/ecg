@@ -74,7 +74,7 @@ class STFourier(object):
         assert (signal.shape[0] == self.T*self.fs), "The signal is not corresponding to the specified time length and" \
                                                     "sample frequency"
         result = torch.zeros(self.domain_shape[0], self.domain_shape[1])
-        signal_pad = torch.concat((signal, torch.zeros(self.win)))
+        signal_pad = torch.cat((signal, torch.zeros(self.win)))
         for i, L_edge in enumerate((range(0, signal.shape[0], self.jump))):
             dampened = self.hanning * signal_pad[L_edge: L_edge + self.win]
             F = torch.fft.rfft(dampened)
