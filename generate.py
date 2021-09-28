@@ -9,7 +9,8 @@ from transforms import Wavelet
 
 class SinusoidDataSet(Dataset):
 
-    def __init__(self, size, sinusoids, max_freq=15.5, T=10, fs=500, transform=None, save=False, varyFreq=False):
+    def __init__(self, size, sinusoids, max_freq=15.5, T=10, fs=500, transform=None, save=False, varyFreq=False,
+                 target='freq'):
         """
         Initialize a experimental sinusoid signal dataset to test transforms with.
 
@@ -43,6 +44,12 @@ class SinusoidDataSet(Dataset):
         self.data_params_freq = torch.zeros(size, sinusoids)
         self.data_params_amp = torch.zeros(size, sinusoids)
         self.data_params_timevaryingfreq = torch.zeros(size, sinusoids)
+        if target == "freq":
+            self.target = self.data_params_freq
+        elif target == "freq_vary":
+            self.target = self.data_params_timevaryingfreq
+        elif target == "amp":
+            self.target = self.data_params_amp
 
         # Generate the signals
         for i in range(size):
@@ -64,8 +71,8 @@ class SinusoidDataSet(Dataset):
     def __getitem__(self, idx):
         # Target here is frequency of the sin wave
         if self.transform is not None:
-            return self.transform(self.data[idx]), self.data_params_freq[idx]
-        return self.data[idx], self.data_params_freq[idx]
+            return self.transform(self.data[idx]), self.target[idx]
+        return self.data[idx], self.target[idx]
 
 
     def viewTrueSignal(self, idx):
