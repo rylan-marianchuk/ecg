@@ -56,7 +56,7 @@ class InvFourier(object):
     def __call__(self, signal):
         return torch.fft.irfft(signal)
 
-class STFouier(object):
+class STFourier(object):
     def __init__(self, window_size, T=10, fs=500):
         assert (window_size < T*fs), "Specified window size greater than the signal itself"
         self.fs = fs
@@ -81,14 +81,14 @@ class STFouier(object):
             result[i] = torch.abs(F)
         return result
 
-    def view(self, signal):
+    def view(self, signal, hyperparam):
         trfm = self(signal)
         fig = go.Figure(data=go.Heatmap(z=trfm,
                                         x=self.domain[1],
                                         y=self.domain[0]))
-        fig.update_layout(title="Short Time Fourier Transform  -  Window size: " + str(self.win))
+        fig.update_layout(title="Short Time Fourier Transform  -  Window size: " + str(self.win) + hyperparam)
         fig.update_yaxes(title_text="Window start time (seconds)", type='category')
-        fig.update_xaxes(title_text="Power Spectrum of Window", type='category')
+        fig.update_xaxes(title_text="Power Spectrum of Window (frequency)", type='category')
         fig.show()
 
 
